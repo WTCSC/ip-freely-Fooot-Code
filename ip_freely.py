@@ -1,6 +1,9 @@
+import argparse
 import subprocess
 import re
 import sys
+import socket
+import time
 
 digits = "0123456789"
 
@@ -19,7 +22,7 @@ def pingHost(ip):
             ["ping", "-c", "1", ip],
             capture_output=True,
             text=True,
-            timeout=3
+            timeout=0.1
         )
 
         output = result.stdout.lower()
@@ -40,6 +43,65 @@ def pingHost(ip):
 
     except subprocess.TimeoutExpired:
         return "ERROR", "Connection timeout"
+
+def checkPort(ip, portUserInput):
+    """
+    Checks if a specific port is open on the provided IP address.
+    
+    :param ip: IPv4-formatted IP.
+    :param port: Port number(s) to check.
+    """
+    # Parse the port input which can be a single port ("22"),
+    # a comma-separated list ("22,80,443") or a range ("3000-3010").
+    portOutputs = {}
+
+    s = str(portUserInput).strip()
+    try:
+        if "-" in s:
+            start_str, end_str = [p.strip() for p in s.split("-", 1)]
+            start = int(start_str)
+            end = int(end_str)
+            if start < 1 or end > 65535 or start > end:
+                return "ERROR: Invalid port range. Must be 1-65535 and start <= end."
+            portOutputs = {port: "CLOSED" for port in range(start, end + 1)}
+
+        elif "," in s:
+            parts = [p.strip() for p in s.split(",") if p.strip()]
+            ports = []
+            for p in parts:
+                pInt = int(p)
+                if pInt < 1 or pInt > 65535:
+                    return f"ERROR: Invalid port number {pInt}."
+                ports.append(pInt)
+            portOutputs = {int(port): "CLOSED" for port in ports}
+
+        else:
+            pInt = int(s)
+            if pInt < 1 or pInt > 65535:
+                return "ERROR: Invalid port number. Must be between 1 and 65535."
+            portOutputs = {pInt: "CLOSED"}
+    except ValueError:
+        return "ERROR: Invalid port format. Use a single port, comma-separated list, or range (e.g. 22,80 or 3000-3010)."
+
+    # Attempt to connect to each port (use integer ports). Return OPEN/CLOSED or an error string for a port.
+    for port in list(portOutputs.keys()):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3)
+            result = sock.connect_ex((ip, port))
+            if result == 0:
+                portOutputs[port] = "OPEN"
+            else:
+                portOutputs[port] = "CLOSED"
+        except Exception as e:
+            portOutputs[port] = f"ERROR: {e}"
+        finally:
+            try:
+                sock.close()
+            except Exception:
+                pass
+
+    return portOutputs
 
 def findMaskBinary(subnetMask):
     """
@@ -142,9 +204,17 @@ def intToBinary(number):
 
 
 if __name__ == "__main__":
-    ipaddr = sys.argv[1]
+    parser = argparse.ArgumentParser()
 
-    address, subnetMask = ipaddr.split("/")
+    # Add a required positional argument
+    parser.add_argument("ip", type=str, help="A required IP address argument")
+
+    parser.add_argument("-p", "--port", type=str, default="80")
+    
+    args = parser.parse_args()
+
+
+    address, subnetMask = args.ip.split("/")
     subnetMask = int(subnetMask)
 
     maskBinary = findMaskBinary(subnetMask)
@@ -170,8 +240,38 @@ if __name__ == "__main__":
     if subnetMask == 32:
         print("Single host only.")
     else:
+        print("You will see the status of each host in the network range, as well as the status of the specified port(s) if the host is up.")
+        print("At the end, you can ask for more structured data to see the results in a more organized way.")
+        time.sleep(5)
+
+        activeHosts = []
+
         for host in range(networkInt + 1, broadcastInt):
+            # Get host response
             hostBinary = intToBinary(host)
             hostToPing = binaryToBase10_32bit(hostBinary)
             pingResponse = pingHost(hostToPing)
+
+            # Prints the host response
+            portResponse = "N/A"
             print(f"HOST: {hostToPing} | STATUS: {pingResponse[0]} | RESPONSE TIME: {pingResponse[1]}")
+            
+
+            # If the host is up, check the port(s) status
+            if pingResponse[0] == "UP":
+                portResponse = checkPort(hostToPing, args.port)
+                for port, status in portResponse.items():
+                    print(f" - PORT {port} STATUS: {status}")
+            activeHosts.append((hostToPing, pingResponse[0], pingResponse[1], portResponse))
+            
+
+        print("Scan complete.")
+        print("Would you like to the hosts that were up? (y/n)")
+        userInput = input().lower()
+        if userInput == "y":
+            print("Here are the hosts that were up:")
+            for host in activeHosts:
+                if host[1] == "UP":
+                    print(f"HOST: {host[0]} | STATUS: {host[1]} | RESPONSE TIME: {host[2]}")
+                    for port, status in host[3].items():
+                        print(f" - PORT {port} STATUS: {status}")
