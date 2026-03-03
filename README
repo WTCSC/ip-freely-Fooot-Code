@@ -1,0 +1,17 @@
+# IP Freely
+This is a program that takes an IP in IPv4 format and pings all available addresses on the network.
+
+## Overview
+This program will
+- Take the provided IP and find the Network address
+- From the network address, it will find the host address
+- Once the host address is found, it will calculate the highest and lowest IP available on your network
+- It will then loop through each available address, ping each one, and return the responses from each address
+
+## Requirements
+- Python 3+
+
+## How to Run
+1. Clone this repo by running `git clone https://github.com/WTCSC/ip-freely-Fooot-Code.git` in a terminal
+2. Type `python3 ip_freely.py [IP_ADDRESS]` to run the python file. Make sure to type the IP Address in IPv4 format with a subnet mask attached in CIDR format (i.e. 10.103.0.63/23)
+3. Wait while the program pings every available ip address, and displays their status.
