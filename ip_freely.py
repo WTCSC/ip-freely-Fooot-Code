@@ -202,6 +202,11 @@ def intToBinary(number):
         bits.append(str(bit))
     return "".join(bits)
 
+def getServiceName(port):
+    try:
+        return socket.getservbyport(port, "tcp")
+    except OSError:
+        return "unknown"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -261,7 +266,9 @@ if __name__ == "__main__":
             if pingResponse[0] == "UP":
                 portResponse = checkPort(hostToPing, args.port)
                 for port, status in portResponse.items():
-                    print(f" - PORT {port} STATUS: {status}")
+                    if status == "OPEN":
+                        service = getServiceName(port)
+                        print(f" - PORT {port} ({service}) STATUS: {status}")
             activeHosts.append((hostToPing, pingResponse[0], pingResponse[1], portResponse))
             
 
@@ -274,4 +281,5 @@ if __name__ == "__main__":
                 if host[1] == "UP":
                     print(f"HOST: {host[0]} | STATUS: {host[1]} | RESPONSE TIME: {host[2]}")
                     for port, status in host[3].items():
-                        print(f" - PORT {port} STATUS: {status}")
+                        service = getServiceName(port)
+                        print(f" - PORT {port} ({service}) STATUS: {status}")
