@@ -20,3 +20,11 @@ This program will
 3. You can also supply a port(s) to scan by running `python3 ip_freely.py -p [PORT_TO_SCAN] [IP_ADDRESS]` which will then check if the ports at the specific IP address is open. Inputs can look like "80" for 1 port, "22,80,3306" for multiple ports, or "1-1000" for a range of ports
 4. Wait while the program pings every available ip address, and displays their status.
 5. The program will then prompt the user to see if they would like a summary. This will allow them to see only IPs that are up.
+
+## Example
+Here is an example of scanning for port 22 (SSH port)
+Output from this command:
+``` bash
+python3 ip_freely.py -p 22 10.103.0.63/23
+```
+![Port 22 Scan](image.png)
